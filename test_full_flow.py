@@ -1,12 +1,14 @@
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from core.condition_engine import evaluate_condition, should_alert
 from agents.agent1_news import fetch_news
 from agents.agent2_oi import build_oi_report
 from agents.agent3_causality import run_causality_analysis
 from notifiers.sheets import log_alert
+
+IST = timezone(timedelta(hours=5, minutes=30))
 
 # Fake price trigger — C1 setup (price up)
 price_trigger = {
@@ -14,7 +16,7 @@ price_trigger = {
     "current_price": 175.86,
     "window_start_price": 171.57,
     "price_change_pct": 2.5,
-    "triggered_at": datetime.utcnow(),
+    "triggered_at": datetime.now(IST),
 }
 
 # Force C1: price up + OI up

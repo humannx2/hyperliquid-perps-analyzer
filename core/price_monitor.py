@@ -9,7 +9,7 @@ import time
 import requests
 import logging
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from config.settings import (
     ASSET,
     PRICE_CHANGE_THRESHOLD_PCT,
@@ -21,6 +21,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logger = logging.getLogger(__name__)
 
 HL_INFO_URL = "https://api.hyperliquid.xyz/info"
+IST = timezone(timedelta(hours=5, minutes=30))
 
 
 def fetch_mark_price(asset: str) -> float | None:
@@ -69,7 +70,7 @@ class PriceMonitor:
         self.history: deque = deque()
 
     def _prune_old(self):
-        cutoff = datetime.utcnow() - timedelta(seconds=self.window_seconds)
+        cutoff = datetime.now(IST) - timedelta(seconds=self.window_seconds)
         while self.history and self.history[0][0] < cutoff:
             self.history.popleft()
 
@@ -91,7 +92,7 @@ class PriceMonitor:
         if price is None:
             return None
 
-        now = datetime.utcnow()
+        now = datetime.now(IST)
         self.history.append((now, price))
         self._prune_old()
 

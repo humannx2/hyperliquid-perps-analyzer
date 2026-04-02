@@ -11,7 +11,7 @@
 
 import gspread
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from google.oauth2.service_account import Credentials
 from config.settings import (
     GOOGLE_CREDENTIALS_FILE,
@@ -28,7 +28,7 @@ SCOPES = [
 
 # Column headers — written once if the sheet is empty
 HEADERS = [
-    "Timestamp (UTC)",
+    "Timestamp (IST)",
     "Asset",
     "Current Price",
     "Price Δ%",
@@ -42,6 +42,7 @@ HEADERS = [
     "News Summary",
     "Reasoning",
 ]
+IST = timezone(timedelta(hours=5, minutes=30))
 
 
 def _get_worksheet():
@@ -82,7 +83,7 @@ def log_alert(
         ws = _get_worksheet()
         _ensure_headers(ws)
 
-        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
         flags_str = ", ".join(causality.get("flags", []))
         news_summary = news_report.get("summary", "")[:500]   # cap length
 
