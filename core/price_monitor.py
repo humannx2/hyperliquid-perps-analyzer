@@ -5,7 +5,6 @@
 # % threshold is breached within the rolling window.
 # ─────────────────────────────────────────────────────────────────
 
-import time
 import requests
 import logging
 from collections import deque

@@ -2,8 +2,8 @@ import requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import logging
-from datetime import datetime, timezone, timedelta
-from config.settings import ASSET, NEWS_LOOKBACK_MINUTES, OPENROUTER_API_KEY, OPENROUTER_MODEL, SERP_API_KEY
+from datetime import datetime, timezone
+from config.settings import ASSET, OPENROUTER_API_KEY, OPENROUTER_MODEL, SERP_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +82,6 @@ def fetch_news(asset: str = ASSET) -> dict:
         )
         resp.raise_for_status()
         data = resp.json()
-
-        cutoff = datetime.now(tz=timezone.utc) - timedelta(minutes=NEWS_LOOKBACK_MINUTES)
 
         for item in data.get("news_results", []):
             # SerpAPI returns relative time like "2 hours ago" — parse what we can
