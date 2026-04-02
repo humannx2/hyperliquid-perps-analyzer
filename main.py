@@ -29,8 +29,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ── Imports ───────────────────────────────────────────────────────
-from config.settings import CRON_INTERVAL_SECONDS, ASSET
+from config.settings import CRON_INTERVAL_SECONDS, ASSET, ENABLE_VOLUME_TRIGGER
 from core.price_monitor import PriceMonitor
+from core.volume_monitor import VolumeMonitor
 from core.oi_tracker import OITracker
 from core.condition_engine import evaluate_condition, should_alert
 from agents.agent1_news import fetch_news
@@ -40,6 +41,7 @@ from notifiers.sheets import log_alert
 
 # ── Shared state ──────────────────────────────────────────────────
 price_monitor = PriceMonitor()
+volume_monitor = VolumeMonitor()
 oi_tracker = OITracker()
 
 # Cooldown: prevent re-firing alerts within N seconds of the last one
@@ -56,13 +58,23 @@ def run_tick():
     # ── Step 1: OI tick (always running to build history) ─────────
     oi_snapshot = oi_tracker.tick()
 
-    # ── Step 2: Price tick ────────────────────────────────────────
+    # ── Step 2: Price/Volume tick ────────────────────────────────
     price_trigger = price_monitor.tick()
+    volume_trigger = volume_monitor.tick() if ENABLE_VOLUME_TRIGGER else None
 
-    if price_trigger is None:
-        return   # No threshold breach — nothing to do
+    if price_trigger is None and volume_trigger is None:
+        return   # No trigger breach — nothing to do
 
-    logger.info(f"[Main] Price threshold breached: {price_trigger['price_change_pct']:+.2f}%")
+    if price_trigger and volume_trigger:
+        logger.info(
+            "[Main] Trigger gate passed (price+volume) — "
+            f"price={price_trigger['price_change_pct']:+.2f}% | "
+            f"volume={volume_trigger['volume_change_pct']:+.2f}%"
+        )
+    elif price_trigger:
+        logger.info(f"[Main] Trigger gate passed (price-only): {price_trigger['price_change_pct']:+.2f}%")
+    else:
+        logger.info(f"[Main] Trigger gate passed (volume-only): {volume_trigger['volume_change_pct']:+.2f}%")
 
     # ── Cooldown check ────────────────────────────────────────────
     now = time.time()
@@ -74,6 +86,24 @@ def run_tick():
     if oi_snapshot is None:
         logger.warning("[Main] OI snapshot unavailable. Skipping agent pipeline.")
         return
+
+    # If volume-only triggered, synthesize a neutral price trigger so condition
+    # logic remains deterministic and backward compatible.
+    if price_trigger is None:
+        price_trigger = {
+            "asset": ASSET,
+            "current_price": 0.0,
+            "window_start_price": 0.0,
+            "price_change_pct": 0.0,
+            "triggered_at": volume_trigger["triggered_at"],
+            "trigger_source": "volume",
+        }
+    else:
+        price_trigger["trigger_source"] = "price"
+        if volume_trigger is not None:
+            price_trigger["trigger_source"] = "price+volume"
+
+    price_trigger["volume_trigger"] = volume_trigger
 
     # ── Step 3: Condition classification ─────────────────────────
     condition = evaluate_condition(price_trigger, oi_snapshot)

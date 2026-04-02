@@ -66,6 +66,22 @@ def evaluate_condition(price_trigger: dict, oi_snapshot: dict) -> dict | None:
     """
     price_dir = classify_price_direction(price_trigger["price_change_pct"])
     oi_dir = oi_snapshot["direction"]
+    volume_trigger = price_trigger.get("volume_trigger")
+
+    if price_dir == "flat" and volume_trigger is not None:
+        volume_change_pct = volume_trigger.get("volume_change_pct", 0.0)
+        if volume_change_pct > 0:
+            price_dir = "up"
+            logger.info(
+                "[ConditionEngine] Price flat with volume-only trigger. "
+                "Using positive volume direction as fallback price direction."
+            )
+        elif volume_change_pct < 0:
+            price_dir = "down"
+            logger.info(
+                "[ConditionEngine] Price flat with volume-only trigger. "
+                "Using negative volume direction as fallback price direction."
+            )
 
     if price_dir == "flat" or oi_dir == "flat":
         logger.info("[ConditionEngine] No clear condition — price or OI direction is flat.")
@@ -80,6 +96,10 @@ def evaluate_condition(price_trigger: dict, oi_snapshot: dict) -> dict | None:
                 "always_alert": cdef["always_alert"],
                 "price_change_pct": price_trigger["price_change_pct"],
                 "oi_change_pct": oi_snapshot["oi_change_pct"],
+                "volume_change_pct": (
+                    volume_trigger.get("volume_change_pct") if volume_trigger else None
+                ),
+                "trigger_source": price_trigger.get("trigger_source", "price"),
             }
             logger.info(f"[ConditionEngine] Matched {cid}: {cdef['label']}")
             return result
