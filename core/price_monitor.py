@@ -1,51 +1,94 @@
+# core/price_monitor.py
+# ─────────────────────────────────────────────────────────────────
+# Polls Hyperliquid mark price for the configured asset every tick.
+# Maintains a rolling price history and fires when the configured
+# % threshold is breached within the rolling window.
+# ─────────────────────────────────────────────────────────────────
+
+import time
+import requests
 import logging
-from datetime import datetime, timedelta
 from collections import deque
-from config.settings import PRICE_CHANGE_THRESHOLD_PCT, PRICE_WINDOW_MINUTES, ASSET
+from datetime import datetime, timedelta
+from config.settings import (
+    ASSET,
+    PRICE_CHANGE_THRESHOLD_PCT,
+    PRICE_WINDOW_MINUTES,
+)
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
 HL_INFO_URL = "https://api.hyperliquid.xyz/info"
-HL_DEX = "xyz"
-HL_ASSET = "xyz:NVDA"
 
-def fetch_xyz_asset_ctx():
-    import requests, urllib3
-    urllib3.disable_warnings()
-    resp = requests.post(
-        HL_INFO_URL,
-        json={"type": "metaAndAssetCtxs", "dex": HL_DEX},
-        timeout=10,
-        verify=False
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    universe = data[0].get("universe", [])
-    ctxs = data[1]
-    for i, asset in enumerate(universe):
-        if asset.get("name") == HL_ASSET and i < len(ctxs):
-            return ctxs[i]
-    return None
+
+def fetch_mark_price(asset: str) -> float | None:
+    """
+    Fetch the current mark price for an asset from Hyperliquid.
+    Uses the public unauthenticated metaAndAssetCtxs endpoint.
+    """
+    try:
+        payload = {"type": "metaAndAssetCtxs"}
+        resp = requests.post(HL_INFO_URL, json=payload, timeout=10, verify=False)
+        resp.raise_for_status()
+        data = resp.json()
+
+        # data is [meta, assetCtxs]
+        # meta["universe"] is a list of asset dicts with "name"
+        # assetCtxs is a parallel list of market context dicts
+        meta = data[0]
+        asset_ctxs = data[1]
+
+        for i, info in enumerate(meta["universe"]):
+            if info["name"].upper() == asset.upper():
+                mark_px = float(asset_ctxs[i]["markPx"])
+                return mark_px
+
+        logger.warning(f"Asset '{asset}' not found in HL universe.")
+        return None
+
+    except Exception as e:
+        logger.error(f"Error fetching mark price: {e}")
+        return None
+
 
 class PriceMonitor:
+    """
+    Maintains a rolling deque of (timestamp, price) tuples.
+    On each tick, checks whether the oldest price in the window
+    differs from the current price by >= threshold %.
+
+    Returns a trigger dict if breached, else None.
+    """
+
     def __init__(self):
         self.window_seconds = PRICE_WINDOW_MINUTES * 60
         self.threshold_pct = PRICE_CHANGE_THRESHOLD_PCT
-        self.history = deque()
+        # Store (datetime, price) tuples
+        self.history: deque = deque()
 
     def _prune_old(self):
         cutoff = datetime.utcnow() - timedelta(seconds=self.window_seconds)
         while self.history and self.history[0][0] < cutoff:
             self.history.popleft()
 
-    def tick(self):
-        ctx = fetch_xyz_asset_ctx()
-        if ctx is None:
-            logger.error("[PriceMonitor] Could not fetch xyz:NVDA ctx")
-            return None
+    def tick(self) -> dict | None:
+        """
+        Call this on every cron tick.
+        Returns a trigger dict if threshold breached, else None.
 
-        price = float(ctx.get("markPx") or ctx.get("midPx") or 0)
-        if not price:
+        Trigger dict:
+        {
+            "asset": str,
+            "current_price": float,
+            "window_start_price": float,
+            "price_change_pct": float,   # negative = down
+            "triggered_at": datetime,
+        }
+        """
+        price = fetch_mark_price(ASSET)
+        if price is None:
             return None
 
         now = datetime.utcnow()
@@ -53,16 +96,19 @@ class PriceMonitor:
         self._prune_old()
 
         if len(self.history) < 2:
-            logger.debug(f"[PriceMonitor] price={price}, building history...")
+            logger.debug(f"[PriceMonitor] Tick — price={price}, history too short to evaluate.")
             return None
 
         window_start_price = self.history[0][1]
         change_pct = ((price - window_start_price) / window_start_price) * 100
 
-        logger.info(f"[PriceMonitor] {ASSET} price={price:.4f} | window_start={window_start_price:.4f} | delta={change_pct:+.2f}%")
+        logger.info(
+            f"[PriceMonitor] {ASSET} price={price:.4f} | "
+            f"window_start={window_start_price:.4f} | Δ={change_pct:+.2f}%"
+        )
 
         if abs(change_pct) >= self.threshold_pct:
-            logger.info(f"[PriceMonitor] THRESHOLD BREACHED {change_pct:+.2f}%")
+            logger.info(f"[PriceMonitor] THRESHOLD BREACHED — Δ={change_pct:+.2f}%")
             return {
                 "asset": ASSET,
                 "current_price": price,
@@ -70,4 +116,5 @@ class PriceMonitor:
                 "price_change_pct": change_pct,
                 "triggered_at": now,
             }
+
         return None

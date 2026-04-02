@@ -1,50 +1,78 @@
+# core/oi_tracker.py
+# ─────────────────────────────────────────────────────────────────
+# Fetches open interest from Hyperliquid on every tick.
+# Maintains a 3-hour rolling baseline and computes OI delta
+# to classify directional OI movement.
+# ─────────────────────────────────────────────────────────────────
+
+import requests
 import logging
-from datetime import datetime, timedelta
 from collections import deque
-from config.settings import OI_WINDOW_HOURS, ASSET
+from datetime import datetime, timedelta
+from config.settings import ASSET, OI_WINDOW_HOURS
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
 HL_INFO_URL = "https://api.hyperliquid.xyz/info"
-HL_DEX = "xyz"
-HL_ASSET = "xyz:NVDA"
 
-def fetch_xyz_asset_ctx():
-    import requests, urllib3
-    urllib3.disable_warnings()
-    resp = requests.post(
-        HL_INFO_URL,
-        json={"type": "metaAndAssetCtxs", "dex": HL_DEX},
-        timeout=10,
-        verify=False
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    universe = data[0].get("universe", [])
-    ctxs = data[1]
-    for i, asset in enumerate(universe):
-        if asset.get("name") == HL_ASSET and i < len(ctxs):
-            return ctxs[i]
-    return None
+
+def fetch_open_interest(asset: str) -> float | None:
+    """
+    Fetch current open interest for an asset from Hyperliquid.
+    OI is returned in the asset's native units.
+    """
+    try:
+        payload = {"type": "metaAndAssetCtxs"}
+        resp = requests.post(HL_INFO_URL, json=payload, timeout=10, verify=False)
+        resp.raise_for_status()
+        data = resp.json()
+
+        meta = data[0]
+        asset_ctxs = data[1]
+
+        for i, info in enumerate(meta["universe"]):
+            if info["name"].upper() == asset.upper():
+                oi = float(asset_ctxs[i]["openInterest"])
+                return oi
+
+        logger.warning(f"Asset '{asset}' not found for OI fetch.")
+        return None
+
+    except Exception as e:
+        logger.error(f"Error fetching open interest: {e}")
+        return None
+
 
 class OITracker:
+    """
+    Maintains a rolling deque of (timestamp, oi) tuples over OI_WINDOW_HOURS.
+    On tick(), returns an OI snapshot dict with current OI,
+    baseline OI (oldest in window), and % change.
+    """
+
     def __init__(self):
         self.window_seconds = OI_WINDOW_HOURS * 3600
-        self.history = deque()
+        self.history: deque = deque()
 
     def _prune_old(self):
         cutoff = datetime.utcnow() - timedelta(seconds=self.window_seconds)
         while self.history and self.history[0][0] < cutoff:
             self.history.popleft()
 
-    def tick(self):
-        ctx = fetch_xyz_asset_ctx()
-        if ctx is None:
-            logger.error("[OITracker] Could not fetch xyz:NVDA ctx")
-            return None
-
-        oi = float(ctx.get("openInterest") or 0)
-        if not oi:
+    def tick(self) -> dict | None:
+        """
+        Returns OI snapshot dict:
+        {
+            "current_oi": float,
+            "baseline_oi": float,
+            "oi_change_pct": float,   # negative = OI falling
+            "direction": "up" | "down" | "flat",
+        }
+        """
+        oi = fetch_open_interest(ASSET)
+        if oi is None:
             return None
 
         now = datetime.utcnow()
@@ -52,7 +80,12 @@ class OITracker:
         self._prune_old()
 
         if len(self.history) < 2:
-            return {"current_oi": oi, "baseline_oi": oi, "oi_change_pct": 0.0, "direction": "flat"}
+            return {
+                "current_oi": oi,
+                "baseline_oi": oi,
+                "oi_change_pct": 0.0,
+                "direction": "flat",
+            }
 
         baseline_oi = self.history[0][1]
         change_pct = ((oi - baseline_oi) / baseline_oi) * 100 if baseline_oi else 0.0
@@ -64,5 +97,14 @@ class OITracker:
         else:
             direction = "flat"
 
-        logger.info(f"[OITracker] OI={oi:.2f} | baseline={baseline_oi:.2f} | delta={change_pct:+.2f}% | dir={direction}")
-        return {"current_oi": oi, "baseline_oi": baseline_oi, "oi_change_pct": change_pct, "direction": direction}
+        logger.info(
+            f"[OITracker] OI={oi:.2f} | baseline={baseline_oi:.2f} | "
+            f"Δ={change_pct:+.2f}% | direction={direction}"
+        )
+
+        return {
+            "current_oi": oi,
+            "baseline_oi": baseline_oi,
+            "oi_change_pct": change_pct,
+            "direction": direction,
+        }
