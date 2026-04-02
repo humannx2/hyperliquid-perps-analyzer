@@ -1,4 +1,16 @@
 .env
 credentials.json
 settings.py
+echo "config/" >> .gitignore
+echo "__pycache__/" >> .gitignore
+echo "*.pyc" >> .gitignore
+echo "*.pyo" >> .gitignore
+echo "*.pyd" >> .gitignore
+echo "*.pyw" >> .gitignore
+echo "*.pyz" >> .gitignore
+echo "*.pywz" >> .gitignore
+echo "*.pyzw" >> .gitignore
+echo "*.pyzwz" >> .gitignore
+echo "*.pyzwzw" >> .gitignore
+echo "*.pyzwzwz" >> .gitignore
 
