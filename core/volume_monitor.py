@@ -7,6 +7,7 @@ import urllib3
 
 from config.settings import (
     ASSET,
+    HL_PERP_DEX,
     VOLUME_CHANGE_THRESHOLD_PCT,
     VOLUME_WINDOW_MINUTES,
 )
@@ -23,6 +24,8 @@ def fetch_notional_volume_24h(asset: str) -> float | None:
     """Fetch the current 24h notional volume (dayNtlVlm) for an asset."""
     try:
         payload = {"type": "metaAndAssetCtxs"}
+        if HL_PERP_DEX:
+            payload["dex"] = HL_PERP_DEX
         resp = requests.post(HL_INFO_URL, json=payload, timeout=10, verify=False)
         resp.raise_for_status()
         data = resp.json()
@@ -30,11 +33,15 @@ def fetch_notional_volume_24h(asset: str) -> float | None:
         meta = data[0]
         asset_ctxs = data[1]
 
+        expected_names = {asset.upper()}
+        if HL_PERP_DEX:
+            expected_names.add(f"{HL_PERP_DEX}:{asset}".upper())
+
         for i, info in enumerate(meta["universe"]):
-            if info["name"].upper() == asset.upper():
+            if info["name"].upper() in expected_names:
                 return float(asset_ctxs[i].get("dayNtlVlm", 0))
 
-        logger.warning(f"Asset '{asset}' not found in HL universe for volume.")
+        logger.warning(f"Asset '{asset}' not found in HL universe for volume (dex={HL_PERP_DEX or 'default'}).")
         return None
     except Exception as e:
         logger.error(f"Error fetching 24h notional volume: {e}")

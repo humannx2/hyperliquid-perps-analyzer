@@ -11,6 +11,7 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 from config.settings import (
     ASSET,
+    HL_PERP_DEX,
     PRICE_CHANGE_THRESHOLD_PCT,
     PRICE_WINDOW_MINUTES,
 )
@@ -30,6 +31,8 @@ def fetch_mark_price(asset: str) -> float | None:
     """
     try:
         payload = {"type": "metaAndAssetCtxs"}
+        if HL_PERP_DEX:
+            payload["dex"] = HL_PERP_DEX
         resp = requests.post(HL_INFO_URL, json=payload, timeout=10, verify=False)
         resp.raise_for_status()
         data = resp.json()
@@ -40,12 +43,16 @@ def fetch_mark_price(asset: str) -> float | None:
         meta = data[0]
         asset_ctxs = data[1]
 
+        expected_names = {asset.upper()}
+        if HL_PERP_DEX:
+            expected_names.add(f"{HL_PERP_DEX}:{asset}".upper())
+
         for i, info in enumerate(meta["universe"]):
-            if info["name"].upper() == asset.upper():
+            if info["name"].upper() in expected_names:
                 mark_px = float(asset_ctxs[i]["markPx"])
                 return mark_px
 
-        logger.warning(f"Asset '{asset}' not found in HL universe.")
+        logger.warning(f"Asset '{asset}' not found in HL universe (dex={HL_PERP_DEX or 'default'}).")
         return None
 
     except Exception as e:

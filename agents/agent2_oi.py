@@ -4,9 +4,9 @@
 # and fetches additional context (funding rate, 24hr volume) from HL.
 # ─────────────────────────────────────────────────────────────────
 
-import requests
 import logging
-from config.settings import ASSET
+import requests
+from config.settings import ASSET, HL_PERP_DEX
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -21,6 +21,8 @@ def fetch_asset_context(asset: str) -> dict | None:
     """
     try:
         payload = {"type": "metaAndAssetCtxs"}
+        if HL_PERP_DEX:
+            payload["dex"] = HL_PERP_DEX
         resp = requests.post(HL_INFO_URL, json=payload, timeout=10, verify=False)
         resp.raise_for_status()
         data = resp.json()
@@ -28,8 +30,12 @@ def fetch_asset_context(asset: str) -> dict | None:
         meta = data[0]
         asset_ctxs = data[1]
 
+        expected_names = {asset.upper()}
+        if HL_PERP_DEX:
+            expected_names.add(f"{HL_PERP_DEX}:{asset}".upper())
+
         for i, info in enumerate(meta["universe"]):
-            if info["name"].upper() == asset.upper():
+            if info["name"].upper() in expected_names:
                 ctx = asset_ctxs[i]
                 return {
                     "mark_price": float(ctx.get("markPx", 0)),

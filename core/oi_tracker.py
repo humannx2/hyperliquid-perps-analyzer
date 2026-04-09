@@ -9,7 +9,7 @@ import requests
 import logging
 from collections import deque
 from datetime import datetime, timedelta, timezone
-from config.settings import ASSET, OI_WINDOW_HOURS
+from config.settings import ASSET, HL_PERP_DEX, OI_WINDOW_HOURS
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -26,6 +26,8 @@ def fetch_open_interest(asset: str) -> float | None:
     """
     try:
         payload = {"type": "metaAndAssetCtxs"}
+        if HL_PERP_DEX:
+            payload["dex"] = HL_PERP_DEX
         resp = requests.post(HL_INFO_URL, json=payload, timeout=10, verify=False)
         resp.raise_for_status()
         data = resp.json()
@@ -33,12 +35,16 @@ def fetch_open_interest(asset: str) -> float | None:
         meta = data[0]
         asset_ctxs = data[1]
 
+        expected_names = {asset.upper()}
+        if HL_PERP_DEX:
+            expected_names.add(f"{HL_PERP_DEX}:{asset}".upper())
+
         for i, info in enumerate(meta["universe"]):
-            if info["name"].upper() == asset.upper():
+            if info["name"].upper() in expected_names:
                 oi = float(asset_ctxs[i]["openInterest"])
                 return oi
 
-        logger.warning(f"Asset '{asset}' not found for OI fetch.")
+        logger.warning(f"Asset '{asset}' not found for OI fetch (dex={HL_PERP_DEX or 'default'}).")
         return None
 
     except Exception as e:
