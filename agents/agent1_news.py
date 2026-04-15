@@ -1,3 +1,11 @@
+# agents/agent1_news.py
+# ─────────────────────────────────────────────────────────────────
+# Updated for multi-ticker: fetch_news() now accepts symbol and
+# full_name as params so each ticker gets targeted news search.
+# Backward compatible — defaults to ASSET from settings if called
+# without args (existing single-ticker main.py still works).
+# ─────────────────────────────────────────────────────────────────
+
 import requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -7,11 +15,12 @@ from config.settings import ASSET, OPENROUTER_API_KEY, OPENROUTER_MODEL, SERP_AP
 
 logger = logging.getLogger(__name__)
 
-def _summarize_articles(articles: list, asset: str) -> str:
+
+def _summarize_articles(articles: list, symbol: str, full_name: str) -> str:
     if not articles:
         return "No recent news found."
     if not OPENROUTER_API_KEY:
-        logger.warning("[Agent1] OPENROUTER_API_KEY is missing. Falling back to headline list.")
+        logger.warning(f"[Agent1/{symbol}] OPENROUTER_API_KEY missing. Falling back to headlines.")
         return "\n".join(f"- {a['title']} [{a['source']}]" for a in articles[:5])
 
     context_parts = []
@@ -21,7 +30,7 @@ def _summarize_articles(articles: list, asset: str) -> str:
             part += f"\nSnippet: {a['snippet']}"
         context_parts.append(part)
 
-    prompt = f"""You are a financial news analyst focused on short-term trading signals for {asset}.
+    prompt = f"""You are a financial news analyst focused on short-term trading signals for {symbol} ({full_name}).
 
 Below are recent news articles. Provide:
 1. A 3-4 sentence summary of the key stories and catalysts
@@ -54,16 +63,27 @@ Respond in plain prose. No bullet points. No headers. Be direct and specific."""
     except requests.HTTPError as e:
         status = e.response.status_code if e.response is not None else "unknown"
         if status == 401:
-            logger.warning("[Agent1] OpenRouter auth failed (401). Check OPENROUTER_API_KEY.")
+            logger.warning(f"[Agent1/{symbol}] OpenRouter auth failed (401). Check OPENROUTER_API_KEY.")
         else:
-            logger.warning(f"[Agent1] LLM summarization HTTP error ({status}): {e}")
+            logger.warning(f"[Agent1/{symbol}] LLM HTTP error ({status}): {e}")
         return "\n".join(f"- {a['title']} [{a['source']}]" for a in articles[:5])
     except Exception as e:
-        logger.warning(f"[Agent1] LLM summarization failed: {e}")
+        logger.warning(f"[Agent1/{symbol}] LLM summarization failed: {e}")
         return "\n".join(f"- {a['title']} [{a['source']}]" for a in articles[:5])
 
 
-def fetch_news(asset: str = ASSET) -> dict:
+def fetch_news(symbol: str = ASSET, full_name: str = "") -> dict:
+    """
+    Fetch and summarize news for a specific ticker.
+
+    Args:
+        symbol:    Ticker symbol, e.g. "NVDA", "TSLA"
+        full_name: Company name for richer search, e.g. "Nvidia", "Tesla"
+                   Falls back to symbol if not provided.
+    """
+    if not full_name:
+        full_name = symbol
+
     articles = []
 
     try:
@@ -71,7 +91,7 @@ def fetch_news(asset: str = ASSET) -> dict:
             "https://serpapi.com/search",
             params={
                 "engine": "google_news",
-                "q": f"{asset} Nvidia stock",
+                "q": f"{symbol} {full_name} stock",
                 "hl": "en",
                 "gl": "us",
                 "num": 10,
@@ -84,32 +104,33 @@ def fetch_news(asset: str = ASSET) -> dict:
         data = resp.json()
 
         for item in data.get("news_results", []):
-            # SerpAPI returns relative time like "2 hours ago" — parse what we can
             pub_raw = item.get("date", "")
             try:
-                # Try direct ISO parse first
                 pub_time = datetime.fromisoformat(pub_raw.replace("Z", "+00:00"))
             except Exception:
-                # Fallback — treat as recent if we can't parse
                 pub_time = datetime.now(tz=timezone.utc)
+
+            source = item.get("source", "")
+            if isinstance(source, dict):
+                source = source.get("name", "")
 
             articles.append({
                 "title": item.get("title", ""),
-                "source": item.get("source", {}).get("name", "") if isinstance(item.get("source"), dict) else item.get("source", ""),
+                "source": source,
                 "published_at": pub_time.isoformat(),
                 "link": item.get("link", ""),
                 "snippet": item.get("snippet", ""),
             })
 
-        logger.info(f"[Agent1] SerpAPI: {len(articles)} articles found.")
+        logger.info(f"[Agent1/{symbol}] SerpAPI: {len(articles)} articles found.")
 
     except Exception as e:
-        logger.warning(f"[Agent1] SerpAPI failed: {e}")
+        logger.warning(f"[Agent1/{symbol}] SerpAPI failed: {e}")
 
     has_news = len(articles) > 0
-    logger.info(f"[Agent1] Summarizing {len(articles)} articles via LLM...")
-    summary = _summarize_articles(articles, asset)
-    logger.info(f"[Agent1] Summary ready: {summary[:150]}...")
+    logger.info(f"[Agent1/{symbol}] Summarizing via LLM...")
+    summary = _summarize_articles(articles, symbol, full_name)
+    logger.info(f"[Agent1/{symbol}] Summary: {summary[:120]}...")
 
     return {
         "has_news": has_news,
