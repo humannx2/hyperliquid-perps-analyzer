@@ -276,6 +276,7 @@ Columns written by `notifiers/sheets.py`:
 - Confirm `SERP_API_KEY`, `OPENROUTER_API_KEY`.
 - Check outbound network rules.
 - Fallback responses may still allow pipeline completion.
+- Agent 3 fallback events emit per-ticker terminal `ERROR` logs and still write a fallback verdict row to Sheets.
 
 ### Sheets failures
 

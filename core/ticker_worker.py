@@ -240,6 +240,12 @@ class TickerWorker:
         causality = run_causality_analysis(
             effective_trigger, news_report, oi_report, condition
         )
+        causality_flags = causality.get("flags") or []
+        if "agent3_error" in causality_flags:
+            logger.error(
+                f"[{self.symbol}] Agent 3 failed; using fallback verdict "
+                f"(confidence={causality.get('confidence', 'low')})."
+            )
         logger.info(f"[{self.symbol}] Verdict: {causality.get('verdict','')[:80]}")
 
         # Log to per-ticker Sheets tab

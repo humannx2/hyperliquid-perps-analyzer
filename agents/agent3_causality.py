@@ -141,6 +141,8 @@ def run_causality_analysis(price_trigger, news_report, oi_report, condition) -> 
 
 
 def _fallback_verdict() -> dict:
+    # Keep a stable machine-detectable flag so callers can surface
+    # degraded-mode failures clearly in terminal logs.
     return {
         "verdict": "Unable to determine causality — LLM call failed.",
         "confidence": "low",
