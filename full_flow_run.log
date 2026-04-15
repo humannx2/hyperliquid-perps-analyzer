@@ -1,0 +1,399 @@
+Testing: ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'META', 'AMZN', 'GOLD', 'SP500', 'PLTR', 'AMD', 'MSTR', 'COIN', 'HOOD', 'INTC']
+
+============================================================
+DRY RUN — NVDA (Nvidia)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: The key stories highlight mixed but generally positive catalysts for Nvidia. Retail traders are reportedly pivoting from NVDA to Tesla, per a research firm, but NVDA’s stock has risen for 10 straight days due to strong AI demand. Goldman Sachs notes ...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price move is most likely driven by new longs entering the market with strong conviction, supported by positive institutional sentiment and AI demand.
+    Confidence : high
+    Driver     : oi_flow
+    Reasoning  : The simultaneous increase in price and open interest (+6.70%) indicates new longs are entering with conviction, while the bullish funding rate and institutional catalysts (Goldman's 'Rule of 10', Senator Boozman's purchase) reinforce the upward momentum despite mixed retail sentiment.
+
+[6] Google Sheets — tab: NVDA
+    Logged.
+
+============================================================
+DRY RUN — TSLA (Tesla)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: Here’s the breakdown:  
+
+UBS analyst Joseph Spak upgraded Tesla ahead of earnings, citing optimism around AI and cost-cutting measures, while Elon Musk’s announcement of the AI5 chip milestone and tease of AI6 drove the stock up nearly 8%. However, b...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price surge is primarily driven by new long positions entering the market following bullish news including a UBS upgrade and Elon Musk's AI announcements.
+    Confidence : high
+    Driver     : news
+    Reasoning  : The combination of a significant price increase (+3.50%) and rising open interest (+6.70%) indicates strong conviction from new longs, likely triggered by the UBS upgrade and Musk's AI-related announcements. The bullish funding rate and absence of volume anomalies further support this narrative.
+
+[6] Google Sheets — tab: TSLA
+    Logged.
+
+============================================================
+DRY RUN — AAPL (Apple)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: Here’s the breakdown:  
+
+The key stories highlight AAPL's recent stock performance, trading around $260 with a 1.69% gain, and analysts forecasting a range of $255–$270. Sentiment is mixed, leaning slightly bullish due to upward momentum and positive...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price move is most likely driven by new long positions entering the market, supported by rising open interest and bullish funding bias.
+    Confidence : high
+    Driver     : oi_flow
+    Reasoning  : The +2.50% price increase coincides with a +6.70% rise in open interest, indicating new longs entering the market. The bullish funding bias further supports this conviction move, outweighing mixed news sentiment.
+
+[6] Google Sheets — tab: AAPL
+    Logged.
+
+============================================================
+DRY RUN — MSFT (Microsoft)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: Microsoft’s stock has seen notable movement driven by a mix of technical and fundamental factors. The stock recently hit a key technical level, sparking debate on whether it’s a buy or sell, while news of Xbox potentially returning to exclusive games...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price move is likely driven by new long positions entering the market, supported by bullish news and a strong increase in open interest.
+    Confidence : high
+    Driver     : oi_flow
+    Reasoning  : The significant increase in open interest (+6.70%) alongside a price rise (+2.50%) indicates new longs entering the market, suggesting conviction in the bullish move. Recent news about Microsoft's AI advancements and Xbox strategy further supports this bullish sentiment.
+
+[6] Google Sheets — tab: MSFT
+    Logged.
+
+============================================================
+DRY RUN — GOOGL (Google Alphabet)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: The key stories highlight Alphabet's strong position in AI, with multiple articles praising its execution and potential for growth, particularly through AI-powered tools like Google Finance and its core search business, which reportedly generates $61...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price increase is likely driven by new long positions entering the market, supported by bullish sentiment around Alphabet's AI growth potential.
+    Confidence : high
+    Driver     : oi_flow
+    Reasoning  : The +6.70% increase in open interest alongside the price rise indicates new longs entering the market, suggesting conviction in the bullish move. While news sentiment is mixed, the strong focus on Alphabet's AI growth potential likely fueled trader optimism.
+
+[6] Google Sheets — tab: GOOGL
+    Logged.
+
+============================================================
+DRY RUN — META (Meta)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: Meta Platforms is facing a mix of challenges and opportunities, creating a volatile trading environment. The stock has experienced significant drops, losing nearly 8% due to back-to-back court losses and concerns over potential layoffs affecting 20% ...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price increase is likely driven by new long positions entering the market, supported by bullish sentiment around Meta's AI growth and cost-cutting measures.
+    Confidence : medium
+    Driver     : oi_flow
+    Reasoning  : The +3.00% price increase and +6.70% OI change indicate new longs entering the market, aligning with the 'Strong bull' condition. The bullish funding rate and mixed news sentiment, particularly optimism around AI growth, further support this interpretation.
+
+[6] Google Sheets — tab: META
+    Logged.
+
+============================================================
+DRY RUN — AMZN (Amazon)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: Here’s the breakdown:  
+
+The key stories highlight Amazon’s potential for growth, driven by a mix of strategic deals, AI advancements, and earnings optimism. A deal with a Starlink rival has boosted sentiment, while Amazon’s AI dominance over Microso...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price surge is likely driven by bullish sentiment from recent news and increased open interest indicating new long positions.
+    Confidence : high
+    Driver     : news
+    Reasoning  : The strong price increase aligns with bullish news about Amazon's growth potential, AI advancements, and strategic deals. Concurrently, the rise in open interest suggests new longs are entering the market, reinforcing the bullish move.
+
+[6] Google Sheets — tab: AMZN
+    Logged.
+
+============================================================
+DRY RUN — GOLD (Gold)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: The key stories highlight a mix of company-specific and broader market catalysts for gold. Gold.com is set to release Q3 results before May 6, which could impact sentiment around gold-related equities. Omai Gold Mines Corp. saw significant trading ac...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price move is most likely driven by new longs entering the market, indicated by rising open interest and price, amid mixed news sentiment.
+    Confidence : high
+    Driver     : oi_flow
+    Reasoning  : The simultaneous increase in price and open interest (+6.70%) suggests strong conviction from new longs entering the market, despite mixed news. The bullish funding rate and minimal basis premium further support this interpretation, outweighing the mixed news signals.
+
+[6] Google Sheets — tab: GOLD
+    Logged.
+
+============================================================
+DRY RUN — SP500 (S&P 500)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: The S&P 500 has surged to record highs, closing above 7,000 for the first time, driven by easing geopolitical tensions in the Middle East and strong performances from key sectors like tech (Broadcom) and banks. Investors are optimistic as the market ...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price increase is likely driven by new long positions entering the market amid strong bullish sentiment and positive news.
+    Confidence : high
+    Driver     : news
+    Reasoning  : The combination of a significant increase in open interest (+6.70%) and positive news about the S&P 500 reaching record highs suggests new longs are entering the market. The bullish sentiment is further supported by easing geopolitical tensions and strong sector performances.
+
+[6] Google Sheets — tab: SP500
+    Logged.
+
+============================================================
+DRY RUN — PLTR (Palantir)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: Recent news highlights mixed sentiment around Palantir (PLTR). On one hand, the stock is rising due to positive momentum and potential undervaluation, with some analysts suggesting a 40% discount opportunity. On the other hand, notable bearish signal...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price move is likely driven by new long positions entering the market, supported by rising open interest and bullish funding bias.
+    Confidence : high
+    Driver     : oi_flow
+    Reasoning  : The +6.70% increase in open interest alongside a +3.50% price rise suggests strong conviction from new buyers. The bullish funding bias further supports this interpretation, indicating a preference for long positions.
+
+[6] Google Sheets — tab: PLTR
+    Logged.
+
+============================================================
+DRY RUN — AMD (AMD)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: The key stories highlight AMD's position in the semiconductor and AI chip markets, with comparisons to competitors like Nvidia, Intel, and Broadcom. Articles discuss AMD's potential in the AI supercycle, its recent 4% stock gain, and its competitive ...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price move is likely driven by a combination of bullish news sentiment and strong open interest growth indicating new longs entering the market.
+    Confidence : high
+    Driver     : news
+    Reasoning  : The 3.50% price increase aligns with the 6.70% rise in open interest, suggesting new long positions are being opened with conviction. The bullish news sentiment around AMD's AI potential and recent stock gains further supports this upward momentum, creating a reinforcing cycle of buying pressure.
+
+[6] Google Sheets — tab: AMD
+    Logged.
+
+============================================================
+DRY RUN — MSTR (MicroStrategy)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: Here’s the breakdown:  
+
+The key stories revolve around MicroStrategy’s volatile stock performance, its heavy reliance on Bitcoin strategy, and mixed analyst sentiment. Articles highlight MSTR’s recent 50-day moving average breakout, a Texas bank’s b...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price surge is likely driven by new long positions entering the market, supported by bullish news and technical signals.
+    Confidence : high
+    Driver     : oi_flow
+    Reasoning  : The simultaneous increase in price and open interest (+6.70%) indicates new longs entering with conviction, while bullish news (e.g., Texas bank's price target) and technical signals (50-day MA breakout) further support the upward momentum.
+
+[6] Google Sheets — tab: MSTR
+    Logged.
+
+============================================================
+DRY RUN — COIN (Coinbase)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: Coinbase (COIN) stock is experiencing significant movement driven by Bitcoin's surge to $75,000, which has boosted trading volumes and investor optimism. Piper Sandler raised its price target for COIN to $180, citing increased futures trading activit...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price surge is primarily driven by new long positions entering the market amid bullish sentiment from Bitcoin's rally and positive analyst outlook on Coinbase.
+    Confidence : high
+    Driver     : news
+    Reasoning  : The simultaneous increase in price and open interest (+6.70%) indicates strong new long positioning, which aligns with the bullish news catalyst (Bitcoin's surge to $75k and Piper Sandler's upgraded price target). The funding rate's slight bullish bias and COIN's historical tie to crypto volatility further support this explanation.
+
+[6] Google Sheets — tab: COIN
+    Logged.
+
+============================================================
+DRY RUN — HOOD (Robinhood)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: Robinhood (HOOD) shares surged due to a favorable SEC rule change eliminating the Pattern Day Trader (PDT) requirement, which is expected to boost trading activity on its platform. The stock also benefited from Bitcoin’s rally above $76,000, driving ...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price surge is most likely driven by the favorable SEC rule change eliminating the PDT requirement and Bitcoin's rally, which boosted optimism and new long positions in HOOD perpetual futures.
+    Confidence : high
+    Driver     : news
+    Reasoning  : The combination of a significant OI increase (+6.70%) and bullish funding rate aligns with the news-driven optimism, suggesting new longs are entering with conviction. The SEC rule change and Bitcoin's rally are directly relevant to HOOD's business model, making this a clear catalyst.
+
+[6] Google Sheets — tab: HOOD
+    Logged.
+
+============================================================
+DRY RUN — INTC (Intel)
+============================================================
+
+[1] Condition classification
+    C1 — Strong bull
+
+[2] Agent 1 — news (live SerpAPI call)
+    has_news=True | 10 articles
+    Summary: Intel's stock is experiencing significant volatility with mixed catalysts. The stock recently hit a 52-week high after a strong 9-day rally, fueled by optimism around its AI capabilities, a new strategic alliance with Terafab, and bullish commentary ...
+
+[3] Agent 2 — OI report
+    OI moved +6.70% over the past 3 hours (up). Current OI: 320000.00. Funding: 0.0006% (bullish bias). 24h notional volume: $35,000,000. Basis premium: -...
+
+[4] Alert gate
+    Should alert: True
+
+[5] Agent 3 — causality (live LLM call)
+    Verdict    : The price move is most likely driven by new longs entering the market due to bullish sentiment around Intel's AI capabilities and strategic alliance with Terafab.
+    Confidence : high
+    Driver     : oi_flow
+    Reasoning  : The simultaneous increase in price and open interest (+6.70%) indicates new longs entering with conviction, supported by the bullish funding rate. While news sentiment is mixed, the recent AI optimism and Terafab partnership appear to be the dominant catalysts.
+
+[6] Google Sheets — tab: INTC
+    Logged.

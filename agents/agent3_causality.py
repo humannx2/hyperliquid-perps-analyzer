@@ -24,12 +24,30 @@ def _build_volume_section(price_trigger: dict) -> str:
     if not volume_trigger:
         return "## Volume\nNo volume threshold breach this tick."
 
+    volume_change_pct = volume_trigger.get("volume_change_pct", 0.0)
+    volume_threshold_pct = volume_trigger.get("volume_threshold_pct")
+    window_minutes = volume_trigger.get("volume_window_minutes")
+    threshold_line = ""
+    if isinstance(volume_threshold_pct, (int, float)):
+        threshold_line = f"- Config threshold: {volume_threshold_pct:+.2f}%"
+        if isinstance(window_minutes, (int, float)):
+            threshold_line += f" over {int(window_minutes)}m"
+        threshold_line += "\n"
+    above_threshold_line = ""
+    if isinstance(volume_threshold_pct, (int, float)):
+        above_threshold_line = (
+            f"- Breach magnitude above threshold: "
+            f"{(volume_change_pct - volume_threshold_pct):+.2f}%\n"
+        )
+
     return (
         f"## Volume\n"
         f"- 24h notional volume: ${volume_trigger.get('current_volume', 0):,.0f}\n"
         f"- Window start volume: ${volume_trigger.get('window_start_volume', 0):,.0f}\n"
         f"- Volume added in window: ${volume_trigger.get('window_delta', 0):,.0f}\n"
-        f"- Volume change: {volume_trigger.get('volume_change_pct', 0):+.2f}%\n"
+        f"- Volume change: {volume_change_pct:+.2f}%\n"
+        f"{threshold_line}"
+        f"{above_threshold_line}"
         f"- Volume threshold breached: yes"
     )
 

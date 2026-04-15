@@ -51,6 +51,17 @@ _sheet_client = None
 _ws_cache: dict[str, gspread.Worksheet] = {}
 
 
+def _truncate_on_sentence(text: str, max_len: int) -> str:
+    """Truncate only at sentence boundaries; avoid half sentences."""
+    if len(text) <= max_len:
+        return text
+    window = text[:max_len]
+    end = max(window.rfind("."), window.rfind("!"), window.rfind("?"))
+    if end == -1:
+        return text
+    return text[: end + 1]
+
+
 def _get_client() -> gspread.Client:
     global _sheet_client
     if _sheet_client is None:
@@ -107,7 +118,12 @@ def log_alert(
 
         volume_trigger = price_trigger.get("volume_trigger") or {}
         vol_24h = oi_report.get("volume_24h", "")
-        vol_delta_pct = volume_trigger.get("volume_change_pct", "")
+        vol_delta_pct = volume_trigger.get("volume_change_pct")
+        if vol_delta_pct is None:
+            vol_delta_pct = condition.get("volume_change_pct")
+
+        news_summary = _truncate_on_sentence(news_report.get("summary", ""), 500)
+        verdict_preview = _truncate_on_sentence(causality.get("verdict", ""), 60)
 
         row = [
             now,
@@ -124,14 +140,14 @@ def log_alert(
             causality.get("confidence", ""),
             causality.get("verdict", ""),
             flags_str,
-            news_report.get("summary", "")[:500],
+            news_summary,
             causality.get("reasoning", ""),
         ]
 
         ws.append_row(row, value_input_option="USER_ENTERED")
         logger.info(
             f"[Sheets/{sheets_tab}] Row appended — "
-            f"{condition['condition_id']} | {causality.get('verdict','')[:60]}"
+            f"{condition['condition_id']} | {verdict_preview}"
         )
 
     except Exception as e:

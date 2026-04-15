@@ -17,6 +17,17 @@ logger = logging.getLogger(__name__)
 HL_INFO_URL = "https://api.hyperliquid.xyz/info"
 
 
+def _truncate_on_sentence(text: str, max_len: int) -> str:
+    """Truncate only at sentence boundaries; else keep full text."""
+    if len(text) <= max_len:
+        return text
+    window = text[:max_len]
+    end = max(window.rfind("."), window.rfind("!"), window.rfind("?"))
+    if end == -1:
+        return text
+    return text[: end + 1]
+
+
 def build_oi_report_for_ticker(
     oi_snapshot: dict,
     volume_trigger: dict | None,
@@ -65,7 +76,7 @@ def build_oi_report_for_ticker(
         f"{vol_line}"
     )
 
-    logger.info(f"[Agent2] {report['interpretation'][:100]}...")
+    logger.info(f"[Agent2] {_truncate_on_sentence(report['interpretation'], 100)}")
     return report
 
 

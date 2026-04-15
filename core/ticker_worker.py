@@ -28,6 +28,17 @@ logger = logging.getLogger(__name__)
 IST = timezone(timedelta(hours=5, minutes=30))
 
 
+def _truncate_on_sentence(text: str, max_len: int) -> str:
+    """Truncate text at sentence boundary; avoid partial sentence logs."""
+    if len(text) <= max_len:
+        return text
+    window = text[:max_len]
+    end = max(window.rfind("."), window.rfind("!"), window.rfind("?"))
+    if end == -1:
+        return text
+    return text[: end + 1]
+
+
 def _extract_ctx(data: list, hl_asset: str) -> dict | None:
     """Extract a single asset's ctx from the full metaAndAssetCtxs response."""
     if not data:
@@ -144,6 +155,8 @@ class TickerWorker:
                 "window_start_volume": window_start_vol,
                 "volume_change_pct": change_pct,
                 "window_delta": window_delta,
+                "volume_threshold_pct": self.vol_threshold_pct,
+                "volume_window_minutes": self.cfg["volume_window_minutes"],
                 "triggered_at": now,
             }
         return None
@@ -246,7 +259,8 @@ class TickerWorker:
                 f"[{self.symbol}] Agent 3 failed; using fallback verdict "
                 f"(confidence={causality.get('confidence', 'low')})."
             )
-        logger.info(f"[{self.symbol}] Verdict: {causality.get('verdict','')[:80]}")
+        verdict_preview = _truncate_on_sentence(causality.get("verdict", ""), 80)
+        logger.info(f"[{self.symbol}] Verdict: {verdict_preview}")
 
         # Log to per-ticker Sheets tab
         log_alert(

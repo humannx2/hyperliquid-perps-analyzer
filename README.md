@@ -127,6 +127,23 @@ Each worker owns isolated state:
   - C1/C2 always alert.
   - C3/C4 alert when news exists or trigger source includes volume.
 
+### Condition Matrix (All Variations)
+
+| Price direction | OI direction | Condition | Label | Base alert rule |
+|---|---|---|---|---|
+| up | up | C1 | Strong bull | Always alert |
+| down | up | C2 | Strong bear | Always alert |
+| down | down | C3 | Weak fall | Alert only with news, unless trigger source includes volume |
+| up | down | C4 | Weak rally | Alert only with news, unless trigger source includes volume |
+
+### Trigger Source Effects
+
+| Trigger source | Price direction used for condition mapping | C1/C2 behavior | C3/C4 behavior |
+|---|---|---|---|
+| `price` | Actual price change direction | Alert | Needs news |
+| `volume` | If price is flat, volume direction is used as fallback (`+` => up, `-` => down) | Alert | Alert (volume-trigger override) |
+| `price+volume` | Actual price direction (volume context still attached) | Alert | Alert (volume-trigger override) |
+
 ## Agents
 
 ### Agent 1 (`agents/agent1_news.py`)

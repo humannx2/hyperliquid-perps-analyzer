@@ -16,6 +16,20 @@ from config.settings import ASSET, OPENROUTER_API_KEY, OPENROUTER_MODEL, SERP_AP
 logger = logging.getLogger(__name__)
 
 
+def _truncate_on_sentence(text: str, max_len: int) -> str:
+    """
+    Truncate only at sentence boundaries to avoid mid-sentence chops.
+    If no boundary exists within max_len, keep full text.
+    """
+    if len(text) <= max_len:
+        return text
+    window = text[:max_len]
+    end = max(window.rfind("."), window.rfind("!"), window.rfind("?"))
+    if end == -1:
+        return text
+    return text[: end + 1]
+
+
 def _summarize_articles(articles: list, symbol: str, full_name: str) -> str:
     if not articles:
         return "No recent news found."
@@ -130,7 +144,7 @@ def fetch_news(symbol: str = ASSET, full_name: str = "") -> dict:
     has_news = len(articles) > 0
     logger.info(f"[Agent1/{symbol}] Summarizing via LLM...")
     summary = _summarize_articles(articles, symbol, full_name)
-    logger.info(f"[Agent1/{symbol}] Summary: {summary[:120]}...")
+    logger.info(f"[Agent1/{symbol}] Summary: {_truncate_on_sentence(summary, 120)}")
 
     return {
         "has_news": has_news,
