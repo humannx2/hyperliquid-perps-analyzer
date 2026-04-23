@@ -8,6 +8,38 @@ The current codebase is fully centered around `TickerWorker` and `config/tickers
 
 ## Changelog
 
+### `feat/events-calendar` (unreleased, stacks on `feat/reliability-backlog`)
+
+Goal: earnings calendar, macro-event calendar, and statistical "expected move" around upcoming releases — surfaced inline in every alert.
+
+**New module — `events/`**
+
+- `events/fetcher.py` — Finnhub wrapper with 24h disk cache (`events/cache/*.json`).
+  - `get_earnings_calendar(days)` — upcoming earnings across all tickers.
+  - `get_macro_calendar(days)` — FOMC / CPI / NFP / GDP / PCE / PPI / retail sales / unemployment filtered by keyword allowlist (works on Finnhub's free tier which doesn't mark `impact=high`).
+  - `get_earnings_history(symbol)` — last 4 reported quarters with EPS actual / estimate / surprise %.
+  - `upcoming_for_symbol(symbol)` — bundles earnings + history + macro.
+- `events/expected_move.py` — explicit realized-vol model. No options / IV data.
+  - Statistical baseline = `ATR14_daily / price × √days_to_event × 100`.
+  - Historical baseline = median of prior-earnings 2-day moves, computed from HL daily candles around each `earnings_history` date.
+  - Reported move = `max(statistical, historical)`. Returns upper/lower band in USD.
+- `events/context.py` — `get_event_context(symbol, hl_asset, price)` facade returning a pre-rendered HTML string for Telegram + the raw dict for JSONL. Always safe: returns `{"enabled": False}` on any error.
+- `events/preview.py` — CLI to inspect calendar + expected move for one or more tickers without running the full pipeline. `python3 events/preview.py NVDA TSLA --days 30`.
+
+**Integrations**
+- `core/ticker_worker.py` — attaches `event_context` to the alert payload; also lands in `eval/alerts.jsonl` so paper-trader / eval harness can slice alerts by earnings proximity.
+- `notifiers/telegram.py` — renders a `🗓️ Event context` block between News and Playbook when context is available.
+
+**Env**
+- `FINNHUB_API_KEY` — required for live data (free at finnhub.io, 60 req/min). Missing key → gracefully no-ops.
+- `EVENTS_CONTEXT_ENABLED` (default true), `EVENTS_LOOKAHEAD_DAYS` (default 14), `EVENTS_PRE_EARNINGS_DAYS` (default 5 — only show earnings when within N days), `EVENTS_MACRO_HORIZON_DAYS` (default 3), `EVENTS_CACHE_DIR` (default `events/cache`).
+
+**Scope intentionally excluded**
+- Implied-vol / options-chain expected move (needs a real options data source).
+- Guidance / reiteration calendar, dividend ex-dates, index rebalances — easy follow-ups.
+
+---
+
 ### `feat/reliability-backlog` (unreleased, stacks on `feat/anti-hallucination`)
 
 Goal: ship the 6 reliability items that were on the roadmap after the anti-hallucination patch.

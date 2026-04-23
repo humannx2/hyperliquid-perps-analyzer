@@ -26,4 +26,12 @@ Added by feat/reliability-backlog (all optional):
   ENABLE_CROSS_CHECK (bool), CROSS_CHECK_MODEL (openrouter model slug)
   FRESHNESS_ENABLED (bool, default true), FRESHNESS_REPEAT_LIMIT (int, default 3)
   ALERTS_JSONL_PATH (path; default eval/alerts.jsonl)
+
+Added by feat/events-calendar (all optional; no key → feature no-ops):
+  FINNHUB_API_KEY  (free at finnhub.io; required for live earnings/macro data)
+  EVENTS_CONTEXT_ENABLED (bool, default true)
+  EVENTS_LOOKAHEAD_DAYS (default 14)
+  EVENTS_PRE_EARNINGS_DAYS (default 5; only show earnings when within N days)
+  EVENTS_MACRO_HORIZON_DAYS (default 3)
+  EVENTS_CACHE_DIR (default events/cache)
 """
