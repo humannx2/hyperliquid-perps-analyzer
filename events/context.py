@@ -25,6 +25,7 @@ from pathlib import Path
 
 from events.fetcher import upcoming_for_symbol
 from events.expected_move import expected_move_for_event
+from events.monthly_review import _earnings_move_pct, forecast_for_ticker
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +46,19 @@ def _env_int(key: str, default: int) -> int:
         return default
 
 
-def _macro_within(macro_events: list, max_days: int) -> list:
-    """Keep only macro events happening within max_days from today."""
+def _macro_within(macro_events: list, max_days: int, us_only: bool = True) -> list:
+    """
+    Keep only macro events happening within max_days from today.
+
+    By default restrict to US (the tracked universe is US stocks).
+    The fetcher already applied a HIGH_IMPACT keyword allowlist so
+    this is a second filter on country to strip foreign PMI noise.
+    """
     kept = []
     today = date.today()
     for e in macro_events:
+        if us_only and (e.get("country") or "").upper() not in ("US", "USA"):
+            continue
         t = e.get("time") or ""
         try:
             d = datetime.fromisoformat(t.replace("Z", "+00:00")).date()
@@ -68,30 +77,64 @@ def _macro_within(macro_events: list, max_days: int) -> list:
 
 def _render(ctx: dict) -> str:
     parts = []
+
+    # ── Last earnings ──
+    last = ctx.get("last_earnings")
+    if last:
+        verdict = last.get("verdict", "in-line")
+        emoji = {"beat": "🟢", "miss": "🔴", "in-line": "⚪"}.get(verdict, "⚪")
+        sp = last.get("surprise_pct")
+        sp_s = f"{sp:+.2f}%" if sp is not None else "n/a"
+        move = last.get("post_earnings_move_pct")
+        move_s = f"{move:+.2f}%" if move is not None else "n/a"
+        actual = last.get("actual"); est = last.get("estimate")
+        parts.append(
+            f"{emoji} <b>Last earnings {last.get('period')}</b> — {verdict.upper()}  "
+            f"surprise {sp_s} · T±1 move {move_s}  "
+            f"<i>(actual {actual} vs est {est})</i>"
+        )
+
+    # ── Upcoming earnings + forecast + expected move ──
     ner = ctx.get("next_earnings")
     dte = ctx.get("days_to_earnings")
-    em = ctx.get("expected_move") or {}
     if ner and dte is not None and dte >= 0:
         hour_map = {"bmo": "before open", "amc": "after close", "dmh": "during market"}
         when = hour_map.get(ner.get("hour", ""), ner.get("hour", ""))
         when_str = f" ({when})" if when else ""
         eps = ner.get("eps_estimate")
-        eps_str = f"  •  EPS est ${eps}" if eps is not None else ""
-        parts.append(f"📅 <b>Earnings in {dte}d</b> — {ner.get('date')}{when_str}{eps_str}")
+        eps_str = f" · EPS est <code>{eps}</code>" if eps is not None else ""
+        parts.append(f"📅 <b>Next earnings in {dte}d</b> — {ner.get('date')}{when_str}{eps_str}")
+
+        fcst = ctx.get("forecast") or {}
+        if fcst.get("lean"):
+            parts.append(f"   <b>Lean:</b> {fcst['lean']}  score <code>{fcst.get('score', 0):+d}/4</code>")
+            sigs = fcst.get("signals") or {}
+            for name in ("beat_miss_streak", "analyst_recs", "price_target", "news_sentiment"):
+                sig = sigs.get(name) or {}
+                sc = sig.get("score", 0)
+                e_ico = "🟢" if sc > 0 else "🔴" if sc < 0 else "⚪"
+                label = name.replace("_", " ")
+                detail = sig.get("detail", "—")
+                parts.append(f"     {e_ico} {label}: <i>{detail}</i>")
+
+        em = ctx.get("expected_move") or {}
         if em.get("expected_pct"):
             parts.append(
-                f"   Expected move: <b>±{em['expected_pct']:.2f}%</b> "
-                f"(${em['lower_band']:.2f} – ${em['upper_band']:.2f})  "
-                f"[stat {em.get('statistical_pct', 0):.1f}% / hist {em.get('historical_earnings_pct') or '—'}% over {em.get('historical_n', 0)}q]"
+                f"   <b>Expected move:</b> ±{em['expected_pct']:.2f}% "
+                f"(${em['lower_band']:.2f} – ${em['upper_band']:.2f}) "
+                f"<i>[stat {em.get('statistical_pct', 0):.1f}% · hist {em.get('historical_earnings_pct') or '—'}% over {em.get('historical_n', 0)}q]</i>"
             )
+    elif last is None:
+        parts.append("<i>No earnings data available for this ticker.</i>")
+
+    # ── Macro nearby ──
     macro = ctx.get("macro_events_soon") or []
     for e in macro[:3]:
         label = e.get("event") or "event"
         d_str = f"in {e.get('days_away')}d" if e.get("days_away") is not None else "soon"
         parts.append(f"🏛️ <b>{label}</b> — {e.get('country') or '?'} {d_str}")
-    if not parts:
-        return ""
-    return "\n".join(parts)
+
+    return "\n".join(parts) if parts else ""
 
 
 def get_event_context(symbol: str, hl_asset: str, current_price: float) -> dict:
@@ -104,26 +147,59 @@ def get_event_context(symbol: str, hl_asset: str, current_price: float) -> dict:
     try:
         pre_er = _env_int("EVENTS_PRE_EARNINGS_DAYS", 5)
         macro_horizon = _env_int("EVENTS_MACRO_HORIZON_DAYS", 3)
+        earnings_horizon = _env_int("EVENTS_EARNINGS_HORIZON_DAYS", 90)
 
-        bundle = upcoming_for_symbol(symbol)
+        # Use a long lookahead so quarterly cadence is always captured
+        bundle = upcoming_for_symbol(symbol, days=earnings_horizon)
+        hist = bundle.get("earnings_history") or []
+
+        # ── Always include: last earnings + realized move ──
+        last_ctx = None
+        if hist:
+            last = hist[0]
+            sp = last.get("surprise_pct")
+            verdict = "beat" if (sp or 0) > 0.5 else "miss" if (sp or 0) < -0.5 else "in-line"
+            try:
+                move = _earnings_move_pct(hl_asset, last.get("period") or "")
+            except Exception:
+                move = None
+            last_ctx = {
+                "period": last.get("period"),
+                "actual": last.get("eps_actual"),
+                "estimate": last.get("eps_estimate"),
+                "surprise_pct": sp,
+                "verdict": verdict,
+                "post_earnings_move_pct": round(move, 2) if move is not None else None,
+            }
+
+        # ── Always include: upcoming earnings + forward lean ──
+        ner = bundle.get("next_earnings")
+        dte = bundle.get("days_to_earnings")
+        forecast = None
+        em = None
+        if ner:
+            try:
+                forecast = forecast_for_ticker(
+                    symbol, hl_asset, current_price, ner.get("date")
+                )
+            except Exception as fe:
+                logger.warning(f"[events/{symbol}] forecast failed: {fe}")
+            # Expected move only when sufficiently close — uses HL ATR math
+            if dte is not None and 0 <= dte <= pre_er:
+                em = expected_move_for_event(hl_asset, current_price, dte, hist)
+
         ctx: dict = {
             "enabled": True,
             "symbol": symbol,
-            "next_earnings": None,
-            "days_to_earnings": bundle.get("days_to_earnings"),
-            "expected_move": None,
-            "macro_events_soon": _macro_within(bundle.get("macro_events") or [], macro_horizon),
+            "last_earnings": last_ctx,
+            "next_earnings": ner,
+            "days_to_earnings": dte,
+            "forecast": forecast,
+            "expected_move": em,
+            "macro_events_soon": _macro_within(
+                bundle.get("macro_events") or [], macro_horizon
+            ),
         }
-        ner = bundle.get("next_earnings")
-        dte = bundle.get("days_to_earnings")
-
-        if ner and dte is not None and 0 <= dte <= pre_er:
-            ctx["next_earnings"] = ner
-            em = expected_move_for_event(
-                hl_asset, current_price, dte, bundle.get("earnings_history") or []
-            )
-            ctx["expected_move"] = em
-
         ctx["rendered"] = _render(ctx)
         return ctx
     except Exception as e:
