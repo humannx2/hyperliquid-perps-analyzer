@@ -6,6 +6,111 @@ The current codebase is fully centered around `TickerWorker` and `config/tickers
 
 ---
 
+## Changelog
+
+### `feat/events-calendar` (unreleased, stacks on `feat/reliability-backlog`)
+
+Goal: earnings calendar, macro-event calendar, and statistical "expected move" around upcoming releases — surfaced inline in every alert.
+
+**New module — `events/`**
+
+- `events/fetcher.py` — Finnhub wrapper with 24h disk cache (`events/cache/*.json`).
+  - `get_earnings_calendar(days)` — upcoming earnings across all tickers.
+  - `get_macro_calendar(days)` — FOMC / CPI / NFP / GDP / PCE / PPI / retail sales / unemployment filtered by keyword allowlist (works on Finnhub's free tier which doesn't mark `impact=high`).
+  - `get_earnings_history(symbol)` — last 4 reported quarters with EPS actual / estimate / surprise %.
+  - `upcoming_for_symbol(symbol)` — bundles earnings + history + macro.
+- `events/expected_move.py` — explicit realized-vol model. No options / IV data.
+  - Statistical baseline = `ATR14_daily / price × √days_to_event × 100`.
+  - Historical baseline = median of prior-earnings 2-day moves, computed from HL daily candles around each `earnings_history` date.
+  - Reported move = `max(statistical, historical)`. Returns upper/lower band in USD.
+- `events/context.py` — `get_event_context(symbol, hl_asset, price)` facade returning a pre-rendered HTML string for Telegram + the raw dict for JSONL. Always safe: returns `{"enabled": False}` on any error.
+- `events/preview.py` — CLI to inspect calendar + expected move for one or more tickers without running the full pipeline. `python3 events/preview.py NVDA TSLA --days 30`.
+- `events/monthly_review.py` + `preview.py --monthly` — month-long earnings review (past reports reviewed + upcoming yet-to-release). Forward lean for upcoming earnings is **rule-based, not LLM**: beat/miss streak, analyst recommendation tilt, price-target vs spot (free-tier permitting), and ticker news keyword sentiment — scored −4…+4 and bucketed into STRONG/MODERATE BULL/BEAR/NEUTRAL. Supports `--telegram` to push the whole report to the channel.
+
+**Integrations**
+- `core/ticker_worker.py` — attaches `event_context` to the alert payload; also lands in `eval/alerts.jsonl` so paper-trader / eval harness can slice alerts by earnings proximity.
+- `notifiers/telegram.py` — renders a `🗓️ Event context` block between News and Playbook when context is available.
+
+**Env**
+- `FINNHUB_API_KEY` — required for live data (free at finnhub.io, 60 req/min). Missing key → gracefully no-ops.
+- `EVENTS_CONTEXT_ENABLED` (default true), `EVENTS_LOOKAHEAD_DAYS` (default 14), `EVENTS_PRE_EARNINGS_DAYS` (default 5 — only show earnings when within N days), `EVENTS_MACRO_HORIZON_DAYS` (default 3), `EVENTS_CACHE_DIR` (default `events/cache`).
+
+**Scope intentionally excluded**
+- Implied-vol / options-chain expected move (needs a real options data source).
+- Guidance / reiteration calendar, dividend ex-dates, index rebalances — easy follow-ups.
+
+---
+
+### `feat/reliability-backlog` (unreleased, stacks on `feat/anti-hallucination`)
+
+Goal: ship the 6 reliability items that were on the roadmap after the anti-hallucination patch.
+
+**1. Two-model cross-check for high-priority alerts — `agents/agent3_causality.py`**
+- `_is_high_priority()` gates on C1/C2 + news_present + signal score ≥ 6.0.
+- `_run_cross_check()` calls a second LLM via `CROSS_CHECK_MODEL`. If `primary_driver` disagrees, appends `cross_check_disagree:<model>:<alt_driver>` flag and downgrades confidence one notch.
+- Enabled via `ENABLE_CROSS_CHECK=true` + `CROSS_CHECK_MODEL=<slug>` (e.g. `anthropic/claude-haiku-4.5`).
+
+**2. Feed-freshness gate — `core/freshness.py` (new) + `main.py`**
+- Hashes `(symbol, markPx)` tuples across all tickers each tick. If the hash repeats `FRESHNESS_REPEAT_LIMIT` times (default 3) consecutively, the tick is skipped — prevents fleet-wide ghost alerts from a frozen HL feed.
+- `get_stats()` exposes counters for healthchecks.
+- Disable with `FRESHNESS_ENABLED=false`.
+
+**3. 52-day chunked backtest — `backtest/run_backtest.py` (new)**
+- Fetches 15m candles in 4.5k-bar chunks (handles HL's ~5k cap) across all tickers in `config/tickers.py`.
+- Simulates four strategies: EMA Ribbon, RSI Reversion, Donchian 20-breakout, MACD cross — with ATR-based stops/targets and per-strategy bar-holding limits.
+- Writes `backtest/results.csv` + prints an aggregate win-rate table.
+- CLI: `--days`, `--tickers`, `--out`.
+
+**4. Weekly eval harness — `eval/harness.py` (new)**
+- `sample` subcommand: pulls recent alerts from Google Sheets (or `eval/alerts.jsonl` fallback), samples N random rows, writes `eval/to_label.csv` with blank `correct_driver` column.
+- `score` subcommand: reads a human-labeled CSV and prints overall accuracy, per-driver accuracy, and a full confusion matrix. Warns when accuracy drops below 0.8.
+
+**5. Paper-trade simulator — `paper_trade/simulator.py` (new)**
+- Tails the alerts JSONL (see #6), opens a long on C1 / short on C2, sizes stops and TPs with ATR14 fetched live from HL.
+- Marks every open position to market via HL candleSnapshot each poll cycle.
+- Persists `paper_trade/positions.csv` + `paper_trade/summary.json` (win rate, avg PnL, totals).
+- CLI: `--alerts`, `--poll`, `--positions`, `--summary`.
+
+**6. Telegram notifier wired into live pipeline — `notifiers/telegram.py` (new) + `core/ticker_worker.py`**
+- `send_alert_if_enabled()` is a no-op unless `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set.
+- `TELEGRAM_STRONG_ONLY=true` filters to C1/C2 + confidence ≥ medium. `TELEGRAM_MIN_SCORE` sets a score floor.
+- Message format mirrors the v4 channel format (no India-specific section).
+- Also writes each alert to `eval/alerts.jsonl` (path overridable via `ALERTS_JSONL_PATH`) — feeds both the paper-trader and the eval harness.
+
+---
+
+### `feat/anti-hallucination` (unreleased)
+
+Goal: eliminate LLM hallucination in Agent 1 (news summarizer) and Agent 3 (causality verdict).
+
+**Agent 1 — `agents/agent1_news.py`**
+- Strict JSON prompt: `summary` must cite article indices `[N]`; returns `cited_sources: [int]`.
+- Rules in prompt: use only facts present in articles; never invent prices/percentages/analyst names; never predict direction beyond what an article explicitly states; never mention tickers other than the current one.
+- Empty-catalyst contract: if articles are sparse or off-topic, LLM must reply `{"summary": "No clear catalyst.", "sentiment": "neutral", "cited_sources": []}`.
+- Post-hoc validator `_validate_summary()`:
+  - **Fabrication guard** — if SerpAPI returned 0 articles but the LLM produced a non-trivial summary, discard it.
+  - **Citation range check** — citations outside `[1..len(articles)]` get stripped from the summary.
+  - **Foreign-token check** — logs (but does not reject) peer-ticker mentions for review.
+- Temperature lowered to `0.1` (was `0.2`) for tighter determinism.
+
+**Agent 3 — `agents/agent3_causality.py`**
+- Strict grounding prompt: verdict may only reference `price_change_pct`, `oi_change_pct`, `funding_rate`, `volume_change_pct`, `has_news`. No foreign tickers. No invented price levels or events.
+- New response field `cited_inputs: [str]` — which inputs the LLM claims to have used; validated against an allowlist.
+- New validator `_validate_and_ground()` runs after JSON parse:
+  1. Enum coercion for `confidence` and `primary_driver` (invalid → `low` / `unknown`, flagged).
+  2. **Price-grounding check** — any `$X` / bare number in the verdict must be within 1% of `ctx.current_price`; else flag `price_grounding_violation`.
+  3. **News-driver consistency** — if `primary_driver == "news"` but `has_news == False`, coerce to `unknown` + flag `news_driver_without_news`.
+  4. **Foreign-ticker scan** — flag `foreign_tokens:…` for any non-allowlisted uppercase token in the verdict.
+  5. **Cited-inputs sanity** — drop any key not in the allowed set.
+- All guardrail outcomes are appended to the existing `flags` list, so downstream (Sheets, Telegram) can see why a verdict was downgraded without changing its shape.
+
+**Not yet implemented (follow-up branches):**
+- Two-model cross-check for PN-tier alerts (`score ≥ 88`).
+- Freshness gate on HL candle staleness.
+- Weekly human-label eval harness.
+
+---
+
 ## Quick Start
 
 1. Install dependencies:
