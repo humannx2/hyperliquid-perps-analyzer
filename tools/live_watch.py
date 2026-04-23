@@ -106,7 +106,7 @@ def main():
     p.add_argument("--timeout", type=int, default=900,
                    help="seconds before the watcher exits (default 900 = 15min)")
     p.add_argument("--threshold", type=float, default=PRICE_THRESHOLD_PCT,
-                   help=f"price move % to fire (default {PRICE_THRESHOLD_PCT})")
+                   help=f"price move pct to fire (default {PRICE_THRESHOLD_PCT})")
     args = p.parse_args()
 
     if not os.environ.get("TELEGRAM_BOT_TOKEN"):
