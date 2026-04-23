@@ -6,6 +6,40 @@ The current codebase is fully centered around `TickerWorker` and `config/tickers
 
 ---
 
+## Changelog
+
+### `feat/anti-hallucination` (unreleased)
+
+Goal: eliminate LLM hallucination in Agent 1 (news summarizer) and Agent 3 (causality verdict).
+
+**Agent 1 — `agents/agent1_news.py`**
+- Strict JSON prompt: `summary` must cite article indices `[N]`; returns `cited_sources: [int]`.
+- Rules in prompt: use only facts present in articles; never invent prices/percentages/analyst names; never predict direction beyond what an article explicitly states; never mention tickers other than the current one.
+- Empty-catalyst contract: if articles are sparse or off-topic, LLM must reply `{"summary": "No clear catalyst.", "sentiment": "neutral", "cited_sources": []}`.
+- Post-hoc validator `_validate_summary()`:
+  - **Fabrication guard** — if SerpAPI returned 0 articles but the LLM produced a non-trivial summary, discard it.
+  - **Citation range check** — citations outside `[1..len(articles)]` get stripped from the summary.
+  - **Foreign-token check** — logs (but does not reject) peer-ticker mentions for review.
+- Temperature lowered to `0.1` (was `0.2`) for tighter determinism.
+
+**Agent 3 — `agents/agent3_causality.py`**
+- Strict grounding prompt: verdict may only reference `price_change_pct`, `oi_change_pct`, `funding_rate`, `volume_change_pct`, `has_news`. No foreign tickers. No invented price levels or events.
+- New response field `cited_inputs: [str]` — which inputs the LLM claims to have used; validated against an allowlist.
+- New validator `_validate_and_ground()` runs after JSON parse:
+  1. Enum coercion for `confidence` and `primary_driver` (invalid → `low` / `unknown`, flagged).
+  2. **Price-grounding check** — any `$X` / bare number in the verdict must be within 1% of `ctx.current_price`; else flag `price_grounding_violation`.
+  3. **News-driver consistency** — if `primary_driver == "news"` but `has_news == False`, coerce to `unknown` + flag `news_driver_without_news`.
+  4. **Foreign-ticker scan** — flag `foreign_tokens:…` for any non-allowlisted uppercase token in the verdict.
+  5. **Cited-inputs sanity** — drop any key not in the allowed set.
+- All guardrail outcomes are appended to the existing `flags` list, so downstream (Sheets, Telegram) can see why a verdict was downgraded without changing its shape.
+
+**Not yet implemented (follow-up branches):**
+- Two-model cross-check for PN-tier alerts (`score ≥ 88`).
+- Freshness gate on HL candle staleness.
+- Weekly human-label eval harness.
+
+---
+
 ## Quick Start
 
 1. Install dependencies:
