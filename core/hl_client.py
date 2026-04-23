@@ -60,3 +60,36 @@ def fetch_meta_and_asset_ctxs() -> list | None:
     except Exception as e:
         logger.error(f"Error fetching Hyperliquid metaAndAssetCtxs: {e}")
         return None
+
+
+def fetch_candles(coin: str, interval: str, lookback_ms: int) -> list[tuple]:
+    """
+    Fetch HL candles as list of (t, o, h, l, c, v) tuples.
+    Used by realtime technicals. Returns [] on failure — callers
+    must tolerate empty history.
+    """
+    import time
+    now_ms = int(time.time() * 1000)
+    payload = {
+        "type": "candleSnapshot",
+        "req": {
+            "coin": coin,
+            "interval": interval,
+            "startTime": now_ms - lookback_ms,
+            "endTime": now_ms,
+        },
+    }
+    try:
+        resp = _SESSION.post(HL_INFO_URL, json=payload, timeout=10, verify=False)
+        resp.raise_for_status()
+        arr = resp.json()
+        if not isinstance(arr, list):
+            return []
+        return [
+            (int(c["t"]), float(c["o"]), float(c["h"]),
+             float(c["l"]), float(c["c"]), float(c["v"]))
+            for c in arr
+        ]
+    except Exception as e:
+        logger.warning(f"fetch_candles({coin}, {interval}) failed: {e}")
+        return []

@@ -128,7 +128,12 @@ def format_alert(alert: dict) -> str:
     event_ctx = alert.get("event_context") or {}
     events_block = ""
     if event_ctx.get("enabled") and event_ctx.get("rendered"):
-        events_block = f"\n<b>🗓️ Event context</b>\n{event_ctx['rendered']}\n"
+        events_block = f"\n<b>🗓️ Earnings & events</b>\n{event_ctx['rendered']}\n"
+
+    tech_ctx = alert.get("technical_outlook") or {}
+    tech_block = ""
+    if tech_ctx.get("enabled") and tech_ctx.get("rendered"):
+        tech_block = f"\n<b>📊 Technical outlook</b>\n{tech_ctx['rendered']}\n"
 
     return (
         f"{header}"
@@ -138,6 +143,7 @@ def format_alert(alert: dict) -> str:
         f"Driver: <b>{_DRIVER_PLAIN.get(driver, driver or '—')}</b>\n\n"
         f"<b>🧠 Verdict</b>\n{caus.get('verdict', '—')}\n\n"
         f"<b>📰 News</b>\n{(news.get('summary') or '—')[:300]}\n"
+        f"{tech_block}"
         f"{events_block}\n"
         f"<b>🚦 Playbook</b>\n"
         f"Entry on small pullback • Stop –1.5% • TP1 +2%, trail rest • Max 2–3% capital{flag_line}\n\n"

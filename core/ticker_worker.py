@@ -27,6 +27,7 @@ from agents.agent3_causality import run_causality_analysis
 from notifiers.sheets import log_alert
 from notifiers.telegram import send_alert_if_enabled
 from core.freshness import feed_freshness_ok
+from core.technicals import get_technical_outlook
 from events.context import get_event_context
 
 logger = logging.getLogger(__name__)
@@ -303,6 +304,7 @@ class TickerWorker:
         self._last_alert_time = time.time()
 
         event_ctx = get_event_context(self.symbol, self.hl_asset, price)
+        tech_ctx = get_technical_outlook(self.hl_asset, price)
 
         alert_payload = {
             "symbol": self.symbol,
@@ -318,6 +320,7 @@ class TickerWorker:
                 # drop full article list to keep JSONL line compact
             },
             "event_context": event_ctx,
+            "technical_outlook": tech_ctx,
         }
 
         # Telegram notifier (no-op unless TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID set)
