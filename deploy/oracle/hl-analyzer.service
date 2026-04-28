@@ -1,0 +1,33 @@
+[Unit]
+Description=Hyperliquid Perps Analyzer (multi-ticker)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/hyperliquid-perps-analyzer
+EnvironmentFile=/home/ubuntu/hyperliquid-perps-analyzer/.env
+
+# python-dotenv inside main.py also picks up .env, but EnvironmentFile
+# is the canonical systemd way and exposes vars to subprocesses too.
+ExecStart=/home/ubuntu/hyperliquid-perps-analyzer/.venv/bin/python3 main.py
+
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+# Sensible-defaults sandboxing — none of this restricts our outbound HTTPS.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/hyperliquid-perps-analyzer
+PrivateTmp=true
+
+# Reasonable resource caps (well above what we need; 1 OCPU / 6 GB box).
+MemoryMax=2G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

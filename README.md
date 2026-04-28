@@ -6,7 +6,21 @@ The current codebase is fully centered around `TickerWorker` and `config/tickers
 
 ---
 
+## Hosting
+
+- **Oracle Cloud Always Free** (recommended) — full runbook in [`docs/HOSTING_ORACLE.md`](docs/HOSTING_ORACLE.md). $0/month forever, runs on the Ampere A1 ARM Always Free shape with `systemd` for auto-restart. One-shot bootstrap script at `deploy/oracle/setup.sh`.
+- **Railway** — `Procfile` + `runtime.txt` already shipped (see `feat/anti-hallucination` PR notes). Pay-as-you-go (~$3-5/mo for this workload).
+- **Fly.io / Hetzner / VPS** — works with the same Procfile pattern.
+
 ## Changelog
+
+### `feat/oracle-deployment` (unreleased)
+
+- `docs/HOSTING_ORACLE.md` — step-by-step Oracle Cloud Always Free deployment runbook.
+- `deploy/oracle/setup.sh` — idempotent bootstrap script (timezone, deps, venv, systemd, logrotate).
+- `deploy/oracle/hl-analyzer.service` — systemd unit with auto-restart, sandbox flags, resource caps.
+- `deploy/oracle/.env.example` — env template covering every flag added across the recent feature stack.
+- README hosting section.
 
 ### `feat/events-calendar` (unreleased, stacks on `feat/reliability-backlog`)
 
