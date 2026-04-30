@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# events calendar cache (24h TTL, regenerable)
+events/cache/*.json
